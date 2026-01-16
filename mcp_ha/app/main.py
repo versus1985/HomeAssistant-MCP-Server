@@ -23,14 +23,14 @@ logger = logging.getLogger(__name__)
 HA_BASE_URL = os.environ.get("HA_BASE_URL", "http://homeassistant:8123")
 HTTP_TIMEOUT = 30.0
 
-# Leggi versione dal config.yaml
+# Read version from config.yaml
 def get_version() -> str:
-    """Legge la versione dal file config.yaml."""
+    """Reads the version from config.yaml file."""
     try:
-        # Prova prima il path relativo dalla cartella app
+        # Try relative path from app folder first
         config_path = Path(__file__).parent.parent / "config.yaml"
         if not config_path.exists():
-            # Prova nella root del container
+            # Try in container root
             config_path = Path("/config.yaml")
         
         if config_path.exists():
@@ -38,10 +38,10 @@ def get_version() -> str:
                 config = yaml.safe_load(f)
                 return config.get("version", "unknown")
         else:
-            logger.warning(f"config.yaml non trovato in {config_path}")
+            logger.warning(f"config.yaml not found in {config_path}")
             return "unknown"
     except Exception as e:
-        logger.warning(f"Impossibile leggere la versione da config.yaml: {e}")
+        logger.warning(f"Unable to read version from config.yaml: {e}")
         return "unknown"
 
 VERSION = get_version()

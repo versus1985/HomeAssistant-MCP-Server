@@ -1,21 +1,21 @@
-# Guida Deployment Automatico
+# Automated Deployment Guide
 
-## Setup Iniziale (da fare una volta sola)
+## Initial Setup (one-time only)
 
-### 1. Configurare GitHub Repository
+### 1. Configure GitHub Repository
 
-1. **Abilita permessi workflow**:
-   - Vai su: `Settings` → `Actions` → `General`
-   - Scorri fino a "Workflow permissions"
-   - Seleziona: **Read and write permissions**
-   - Spunta: **Allow GitHub Actions to create and approve pull requests**
-   - Clicca **Save**
+1. **Enable workflow permissions**:
+   - Go to: `Settings` → `Actions` → `General`
+   - Scroll to "Workflow permissions"
+   - Select: **Read and write permissions**
+   - Check: **Allow GitHub Actions to create and approve pull requests**
+   - Click **Save**
 
-2. **Verifica GitHub Container Registry**:
-   - Il workflow usa `GITHUB_TOKEN` automaticamente
-   - Nessuna configurazione aggiuntiva necessaria
+2. **Verify GitHub Container Registry**:
+   - The workflow uses `GITHUB_TOKEN` automatically
+   - No additional configuration needed
 
-### 2. Primo Push e Verifica
+### 2. First Push and Verification
 
 ```bash
 git add .
@@ -23,65 +23,65 @@ git commit -m "feat: setup CI/CD pipeline"
 git push origin main
 ```
 
-Verifica che il workflow parta:
-- Vai su GitHub → `Actions`
-- Dovresti vedere il workflow "Build and Push Docker Image" in esecuzione
-- Attendi il completamento (2-5 minuti)
+Verify the workflow starts:
+- Go to GitHub → `Actions`
+- You should see the "Build and Push Docker Image" workflow running
+- Wait for completion (2-5 minutes)
 
-### 3. Rendere Pubblico il Package (opzionale)
+### 3. Make the Package Public (optional)
 
-Per permettere a chiunque di usare l'add-on:
+To allow anyone to use the add-on:
 
-1. Vai su: `https://github.com/<username>?tab=packages`
-2. Clicca su `homeassistant-mcp-server`
-3. `Package settings` (in basso a destra)
-4. Scorri fino a "Danger Zone"
+1. Go to: `https://github.com/<username>?tab=packages`
+2. Click on `homeassistant-mcp-server`
+3. `Package settings` (bottom right)
+4. Scroll to "Danger Zone"
 5. `Change visibility` → **Public**
-6. Conferma
+6. Confirm
 
-## Workflow di Sviluppo Quotidiano
+## Daily Development Workflow
 
-### Sviluppo Standard con Auto-Deploy
+### Standard Development with Auto-Deploy
 
 ```bash
-# 1. Modifica il codice
+# 1. Modify the code
 vim mcp_ha/app/main.py
 
-# 2. Incrementa versione (importante!)
-vim mcp_ha/config.yaml  # es. 1.4.0 → 1.4.1
+# 2. Increment version (important!)
+vim mcp_ha/config.yaml  # e.g., 1.4.0 → 1.4.1
 
-# 3. Aggiorna CHANGELOG
+# 3. Update CHANGELOG
 vim mcp_ha/CHANGELOG.md
-# Aggiungi entry sotto ## [1.4.1] - YYYY-MM-DD
+# Add entry under ## [1.4.1] - YYYY-MM-DD
 
-# 4. Commit e push
+# 4. Commit and push
 git add .
 git commit -m "feat: add new tool xyz"
 git push origin main
 
-# 5. Attendi 2-5 minuti
+# 5. Wait 2-5 minutes
 # GitHub Actions:
-# - Builda immagine multi-arch
-# - Pusha su ghcr.io con tag 1.4.1 e latest
-# - Crea release GitHub automatica
+# - Builds multi-arch image
+# - Pushes to ghcr.io with tags 1.4.1 and latest
+# - Creates automatic GitHub release
 
-# 6. Home Assistant rileva aggiornamento
-# Vai su Add-ons → MCP Server → vedrai "Update available"
+# 6. Home Assistant detects update
+# Go to Add-ons → MCP Server → you'll see "Update available"
 ```
 
-### Commit senza Release (es. documentazione)
+### Commit without Release (e.g., documentation)
 
 ```bash
 git commit -m "docs: update README [skip-release]"
 git push origin main
 ```
 
-Questo builderà l'immagine ma **non creerà una release GitHub**.
+This will build the image but **won't create a GitHub release**.
 
-### Test Locale Prima del Deploy
+### Local Testing Before Deploy
 
 ```bash
-# Build locale
+# Local build
 cd mcp_ha
 docker build -t mcp-ha-local:test .
 
@@ -90,26 +90,26 @@ docker run --rm -p 8099:8099 \
   -e HA_BASE_URL=http://homeassistant:8123 \
   mcp-ha-local:test
 
-# Verifica health
+# Verify health
 curl http://localhost:8099/health
 
-# Se OK, procedi con commit e push
+# If OK, proceed with commit and push
 ```
 
-## Gestione Versioni
+## Version Management
 
 ### Semantic Versioning
 
-Usa [SemVer](https://semver.org/lang/it/):
+Use [SemVer](https://semver.org/):
 
-- **MAJOR** (1.x.x → 2.x.x): Breaking changes (rimozione tool, cambio API)
-- **MINOR** (1.4.x → 1.5.0): Nuove features backward-compatible (nuovo tool)
-- **PATCH** (1.4.0 → 1.4.1): Bug fix e miglioramenti minori
+- **MAJOR** (1.x.x → 2.x.x): Breaking changes (tool removal, API change)
+- **MINOR** (1.4.x → 1.5.0): New backward-compatible features (new tool)
+- **PATCH** (1.4.0 → 1.4.1): Bug fixes and minor improvements
 
-### Esempio Pratico
+### Practical Example
 
 ```bash
-# Nuovo tool (minor)
+# New tool (minor)
 vim mcp_ha/config.yaml  # 1.4.0 → 1.5.0
 
 # Bug fix (patch)
@@ -119,15 +119,15 @@ vim mcp_ha/config.yaml  # 1.4.0 → 1.4.1
 vim mcp_ha/config.yaml  # 1.4.0 → 2.0.0
 ```
 
-## Verifica Deploy
+## Deploy Verification
 
-### 1. Controllare GitHub Actions
+### 1. Check GitHub Actions
 
 ```
 GitHub → Actions → Build and Push Docker Image
 ```
 
-Status attesi:
+Expected statuses:
 - ✅ Checkout repository
 - ✅ Extract version from config.yaml
 - ✅ Set up Docker Buildx
@@ -135,82 +135,82 @@ Status attesi:
 - ✅ Build and push Docker image (3 arch)
 - ✅ Create GitHub Release
 
-### 2. Verificare il Package
+### 2. Verify the Package
 
 ```
 GitHub → Packages → homeassistant-mcp-server
 ```
 
-Dovresti vedere:
-- Tag: `1.4.0`, `latest`
+You should see:
+- Tags: `1.4.0`, `latest`
 - Platforms: `linux/amd64`, `linux/arm64`, `linux/arm/v7`
-- Size: ~200-300 MB totali
+- Size: ~200-300 MB total
 
-### 3. Verificare la Release
+### 3. Verify the Release
 
 ```
 GitHub → Releases
 ```
 
-Dovresti vedere:
+You should see:
 - Tag: `v1.4.0`
-- Titolo: `Release v1.4.0`
-- Asset: Link all'immagine Docker
-- Note: Changelog automatico
+- Title: `Release v1.4.0`
+- Asset: Link to Docker image
+- Notes: Automatic changelog
 
-### 4. Aggiornare in Home Assistant
+### 4. Update in Home Assistant
 
-1. Vai su **Add-ons** → **MCP Server for Home Assistant**
-2. Dovresti vedere banner: **Update available: 1.4.0**
-3. Clicca **Update**
-4. Attendi download e riavvio automatico
-5. Verifica nei log: versione aggiornata
+1. Go to **Add-ons** → **MCP Server for Home Assistant**
+2. You should see banner: **Update available: 1.4.0**
+3. Click **Update**
+4. Wait for download and automatic restart
+5. Check logs: updated version
 
 ## Troubleshooting
 
-### Il workflow fallisce
+### Workflow fails
 
-**Errore: "Permission denied"**
+**Error: "Permission denied"**
 ```
-Verifica Settings → Actions → Workflow permissions
-Deve essere "Read and write permissions"
+Check Settings → Actions → Workflow permissions
+Must be "Read and write permissions"
 ```
 
-**Errore: "version not found"**
+**Error: "version not found"**
 ```
-Verifica che mcp_ha/config.yaml contenga:
+Verify that mcp_ha/config.yaml contains:
 version: "x.y.z"
 ```
 
-**Errore: "docker build failed"**
+**Error: "docker build failed"**
 ```
-Testa localmente:
+Test locally:
 cd mcp_ha && docker build .
 ```
 
-### Home Assistant non vede l'aggiornamento
+### Home Assistant doesn't see the update
 
-1. **Controlla che config.yaml abbia il campo `image`**:
+1. **Check that config.yaml has the `image` field**:
    ```yaml
    image: ghcr.io/{arch}/homeassistant-mcp-server
    ```
 
-2. **Forza refresh manuale**:
-   - Add-ons → Menu (3 punti) → "Check for updates"
+2. **Force manual refresh**:
+   - Add-ons → Menu (3 dots) → "Check for updates"
 
-3. **Verifica che l'immagine sia pubblica**:
+3. **Verify the image is public**:
    - GitHub → Packages → homeassistant-mcp-server
-   - Visibility deve essere "Public"
+   - Visibility must be "Public"
 
-### L'immagine è troppo grande
+### Image is too large
 
-Le immagini multi-arch possono essere 200-300 MB in totale (normali per Python + dipendenze).
+Multi-arch images can be 200-300 MB total (normal for Python + dependencies).
 
-Per ridurre:
+To reduce:
 ```dockerfile
-# In Dockerfile, usa multi-stage build
+# In Dockerfile, use multi-stage build
 FROM python:3.12-slim as builder
-# ... installa dipendenze
+# ... install dependencies
 
 FROM python:3.12-slim
 COPY --from=builder /usr/local /usr/local
@@ -220,26 +220,26 @@ COPY --from=builder /usr/local /usr/local
 
 ### 1. Branch Protection
 
-Proteggi il branch `main` per evitare deploy accidentali:
+Protect the `main` branch to avoid accidental deploys:
 ```
 Settings → Branches → Add rule
 - Branch name: main
 - Require pull request before merging
-- Require status checks (workflow deve passare)
+- Require status checks (workflow must pass)
 ```
 
-### 2. Versioning Automatico (opzionale)
+### 2. Automatic Versioning (optional)
 
-Per automatizzare l'increment della versione, aggiungi al workflow:
+To automate version incrementing, add to workflow:
 ```yaml
 - name: Bump version
   run: |
-    # Script che incrementa automaticamente config.yaml
+    # Script that automatically increments config.yaml
 ```
 
-### 3. Notifiche Deploy
+### 3. Deploy Notifications
 
-Ricevi notifiche Telegram/Discord quando il deploy completa:
+Receive Telegram/Discord notifications when deploy completes:
 ```yaml
 - name: Notify deployment
   if: success()
@@ -251,7 +251,7 @@ Ricevi notifiche Telegram/Discord quando il deploy completa:
 
 ### 4. Staging Environment
 
-Per testare prima della prod, usa branch diversi:
+To test before production, use different branches:
 ```yaml
 on:
   push:
@@ -262,34 +262,34 @@ on:
 
 ## Rollback
 
-Se un deploy introduce un bug:
+If a deploy introduces a bug:
 
-### Metodo 1: Revert del Commit
+### Method 1: Revert the Commit
 
 ```bash
 git revert HEAD
 git push origin main
-# Trigger automaticamente un nuovo deploy
+# Automatically triggers a new deploy
 ```
 
-### Metodo 2: Rollback Manuale in HA
+### Method 2: Manual Rollback in HA
 
 1. Add-ons → MCP Server
 2. Configuration → Version
-3. Seleziona versione precedente
-4. Clicca "Install"
+3. Select previous version
+4. Click "Install"
 
-### Metodo 3: Eliminare Release e Tag
+### Method 3: Delete Release and Tag
 
 ```bash
-# Elimina tag localmente
+# Delete tag locally
 git tag -d v1.4.0
 
-# Elimina tag su GitHub
+# Delete tag on GitHub
 git push origin :refs/tags/v1.4.0
 
-# Elimina release da GitHub UI
+# Delete release from GitHub UI
 # Releases → v1.4.0 → Delete release
 ```
 
-Poi rigenera con versione corretta.
+Then regenerate with correct version.
