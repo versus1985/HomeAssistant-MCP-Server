@@ -120,9 +120,9 @@ To add new MCP tools:
   - MINOR: New backward-compatible features (e.g., new MCP tool)
   - PATCH: Bug fixes and minor improvements
 - **When to increment**:
-  - Every time you modify the server code
+  - **ALWAYS** increment version with every code modification
   - Before committing new features or fixes
-  - Always update the version in `config.yaml` before deployment
+  - Version must be updated in `config.yaml` before git push
 - **Example**: `1.0.0` → `1.1.0` (new tool) or `1.0.1` (bug fix)
 
 ### Updating CHANGELOG.md
@@ -140,6 +140,7 @@ To add new MCP tools:
   1. Increment version in `config.yaml`
   2. Add entry in `CHANGELOG.md` under the new version with date
   3. Describe the modification in the appropriate category
+  4. Commit and push to `main` branch
 - **Example entry**:
   ```markdown
   ## [1.1.0] - 2026-01-16
@@ -148,9 +149,23 @@ To add new MCP tools:
   - Tool `ha_trigger_automation`: ability to trigger automations
   ```
 
+## Deployment Process
+- **CI/CD**: GitHub Actions automatically builds and deploys on push to `main` branch
+- **Multi-arch**: Automatic Docker image build for amd64, arm64, armv7
+- **Registry**: Images published to GitHub Container Registry (GHCR) at `ghcr.io/versus1985/homeassistant-mcp-server`
+- **Workflow**:
+  1. Make code changes
+  2. Update version in `config.yaml`
+  3. Update `CHANGELOG.md`
+  4. Commit and push to `main`
+  5. GitHub Actions automatically builds and publishes new version
+  6. Home Assistant add-on updates automatically from registry
+- **Important**: Never use `force-update.ps1` script for deployment - always deploy via git push
+
 ## Important Notes
 - The server runs inside a Home Assistant add-on container
 - Do not modify the `/health` endpoint (used for monitoring)
 - HA Token: always validated before use, never hardcoded
 - HA_BASE_URL: defaults to `http://homeassistant:8123` (internal add-on network)
-- **Version**: Remember to increment the version in `config.yaml` with every modification
+- **Version**: ALWAYS increment the version in `config.yaml` with every modification
+- **Deployment**: Always deploy via `git push` to main branch, never use force-update.ps1 script

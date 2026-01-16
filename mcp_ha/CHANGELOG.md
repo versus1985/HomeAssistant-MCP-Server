@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.4.2] - 2026-01-16
 
+### Changed
+- **Local build instead of GHCR**: removed `image` field from `config.yaml` to simplify deployment. Home Assistant now builds the image locally from Dockerfile instead of downloading from GitHub Container Registry.
+- Added `repository.json` to identify the repository as an official add-on repository.
+
 ### Fixed
 - Improved Sonos + Spotify playback handling:
   - Auto-add `enqueue: replace` parameter for Sonos devices when playing Spotify content
