@@ -1,59 +1,59 @@
 # Copilot Instructions - Home Assistant MCP Server
 
-## Panoramica del Progetto
-Questo è un server MCP (Model Context Protocol) che espone le API REST di Home Assistant come tool MCP, permettendo agli LLM di interagire con Home Assistant.
+## Project Overview
+This is an MCP (Model Context Protocol) server that exposes Home Assistant REST APIs as MCP tools, allowing LLMs to interact with Home Assistant.
 
-## Architettura e Tecnologie
-- **Framework**: FastAPI con Uvicorn
+## Architecture and Technologies
+- **Framework**: FastAPI with Uvicorn
 - **Transport**: Streamable HTTP (MCP)
-- **Autenticazione**: Token long-lived di Home Assistant tramite Bearer token
-- **Deployment**: Home Assistant Add-on su Docker
+- **Authentication**: Home Assistant long-lived token via Bearer token
+- **Deployment**: Home Assistant Add-on on Docker
 
-## Struttura del Codice
-- `mcp_ha/app/main.py`: Server FastAPI principale con 4 tool MCP
-- `mcp_ha/config.yaml`: Configurazione add-on Home Assistant
-- `mcp_ha/Dockerfile`: Container image per l'add-on
-- `mcp_ha/requirements.txt`: Dipendenze Python
+## Code Structure
+- `mcp_ha/app/main.py`: Main FastAPI server with 4 MCP tools
+- `mcp_ha/config.yaml`: Home Assistant add-on configuration
+- `mcp_ha/Dockerfile`: Container image for the add-on
+- `mcp_ha/requirements.txt`: Python dependencies
 
-## Tool MCP Implementati
-1. **ha_list_states**: Recupera tutti gli stati delle entità
-2. **ha_get_state**: Recupera lo stato di un'entità specifica (input: entity_id)
-3. **ha_list_services**: Elenca tutti i servizi disponibili
-4. **ha_call_service**: Chiama un servizio HA (input: domain, service, entity_id, service_data)
+## Implemented MCP Tools
+1. **ha_list_states**: Retrieves all entity states
+2. **ha_get_state**: Retrieves the state of a specific entity (input: entity_id)
+3. **ha_list_services**: Lists all available services
+4. **ha_call_service**: Calls an HA service (input: domain, service, entity_id, service_data)
 
-## Best Practices per Modifiche al Codice
+## Best Practices for Code Modifications
 
-### Gestione Autenticazione
-- Usa sempre middleware `AuthMiddleware` per validare token
-- L'endpoint `/health` deve rimanere senza autenticazione
-- Token di HA: validare con GET `{HA_BASE_URL}/api/` prima di ogni richiesta autenticata
-- Memorizza il token in `request.state.ha_token` dopo la validazione
+### Authentication Management
+- Always use `AuthMiddleware` middleware to validate token
+- The `/health` endpoint must remain without authentication
+- HA Token: validate with GET `{HA_BASE_URL}/api/` before every authenticated request
+- Store the token in `request.state.ha_token` after validation
 
-### Chiamate API Home Assistant
-- URL base: Usa sempre `HA_BASE_URL` da variabile d'ambiente
-- Headers: Includi sempre `Authorization: Bearer {token}`
-- Timeout: Usa `HTTP_TIMEOUT` (default 30s)
-- Client: Usa `httpx.AsyncClient` riutilizzabile
-- Gestisci errori di connessione con `httpx.RequestError`
+### Home Assistant API Calls
+- Base URL: Always use `HA_BASE_URL` from environment variable
+- Headers: Always include `Authorization: Bearer {token}`
+- Timeout: Use `HTTP_TIMEOUT` (default 30s)
+- Client: Use reusable `httpx.AsyncClient`
+- Handle connection errors with `httpx.RequestError`
 
 ### Logging
-- Usa `logger.info()` per richieste e risposte normali
-- Usa `logger.warning()` per problemi di autenticazione
-- Usa `logger.error()` per errori critici o di connessione
-- Logga sempre: method, path, status code, token validation
+- Use `logger.info()` for normal requests and responses
+- Use `logger.warning()` for authentication issues
+- Use `logger.error()` for critical or connection errors
+- Always log: method, path, status code, token validation
 
-### Formato MCP Tool
-Ogni tool deve seguire questo schema:
+### MCP Tool Format
+Each tool must follow this schema:
 ```python
 {
     "name": "tool_name",
-    "description": "Descrizione chiara dello scopo",
+    "description": "Clear description of the purpose",
     "inputSchema": {
         "type": "object",
         "properties": {
             "param_name": {
                 "type": "string/number/boolean",
-                "description": "Descrizione parametro"
+                "description": "Parameter description"
             }
         },
         "required": ["required_params"]
@@ -61,96 +61,96 @@ Ogni tool deve seguire questo schema:
 }
 ```
 
-### Risposte MCP Tool
-Le risposte devono seguire questo formato:
+### MCP Tool Responses
+Responses must follow this format:
 ```python
 {
     "content": [
         {
             "type": "text",
-            "text": "Risultato formattato (può essere JSON stringificato)"
+            "text": "Formatted result (can be stringified JSON)"
         }
     ]
 }
 ```
 
-### Gestione Errori
-- Status 401: Token mancante o invalido
-- Status 503: Home Assistant non raggiungibile
-- Status 400: Parametri mancanti o invalidi per tool call
-- Restituisci sempre messaggi di errore chiari e informativi
+### Error Handling
+- Status 401: Missing or invalid token
+- Status 503: Home Assistant unreachable
+- Status 400: Missing or invalid parameters for tool call
+- Always return clear and informative error messages
 
 ### Home Assistant API Patterns
-- Stati: `GET /api/states` o `GET /api/states/{entity_id}`
-- Servizi disponibili: `GET /api/services`
-- Chiamata servizio: `POST /api/services/{domain}/{service}` con body JSON
+- States: `GET /api/states` or `GET /api/states/{entity_id}`
+- Available services: `GET /api/services`
+- Service call: `POST /api/services/{domain}/{service}` with JSON body
 
-### Docker e Add-on
-- Port mapping: Porta 8099 esposta (`EXPOSE 8099`)
-- Variabili ambiente: `HA_BASE_URL` configurabile da `config.yaml`
-- Network: Usa hostname `homeassistant` per comunicare con HA core
-- Healthcheck: Endpoint `/health` deve rispondere 200 senza autenticazione
+### Docker and Add-on
+- Port mapping: Port 8099 exposed (`EXPOSE 8099`)
+- Environment variables: `HA_BASE_URL` configurable from `config.yaml`
+- Network: Use hostname `homeassistant` to communicate with HA core
+- Healthcheck: `/health` endpoint must respond 200 without authentication
 
 ### Testing
 - Test health: `curl http://<ip>:8099/health`
-- Test con token: Includi header `Authorization: Bearer <token>`
-- Test tool call: POST a `/mcp/v1/tools/call` con payload MCP corretto
+- Test with token: Include header `Authorization: Bearer <token>`
+- Test tool call: POST to `/mcp/v1/tools/call` with correct MCP payload
 
-## Convenzioni di Codifica
-- **Lingua**: Commenti e docstring in italiano per coerenza con README
-- **Stile**: Seguire PEP 8
-- **Type hints**: Usa sempre type hints per parametri e return values
-- **Async**: Preferisci async/await per I/O operations
-- **Error handling**: Usa try-except con logging appropriato
+## Coding Conventions
+- **Language**: Comments and docstrings in English for consistency with README
+- **Style**: Follow PEP 8
+- **Type hints**: Always use type hints for parameters and return values
+- **Async**: Prefer async/await for I/O operations
+- **Error handling**: Use try-except with appropriate logging
 
-## Estendibilità
-Per aggiungere nuovi tool MCP:
-1. Aggiungi definizione in lista `TOOLS` con schema completo
-2. Implementa handler nel match-case di `call_tool()`
-3. Valida input parameters
-4. Fai chiamata API HA con `http_client.request()`
-5. Formatta risposta secondo schema MCP
-6. Gestisci errori appropriatamente con try-except
-7. Aggiorna README.md con documentazione del nuovo tool
+## Extensibility
+To add new MCP tools:
+1. Add definition in `TOOLS` list with complete schema
+2. Implement handler in the match-case of `call_tool()`
+3. Validate input parameters
+4. Make HA API call with `http_client.request()`
+5. Format response according to MCP schema
+6. Handle errors appropriately with try-except
+7. Update README.md with new tool documentation
 
-## Gestione Versione e Changelog
-- **Versione add-on**: Definita in `mcp_ha/config.yaml` nel campo `version`
-- **Formato**: Usa Semantic Versioning (MAJOR.MINOR.PATCH)
-  - MAJOR: Cambiamenti breaking (es. rimozione tool, cambio API)
-  - MINOR: Nuove features backward-compatible (es. nuovo tool MCP)
-  - PATCH: Bug fix e miglioramenti minori
-- **Quando incrementare**:
-  - Ogni volta che modifichi il codice del server
-  - Prima di fare commit di nuove features o fix
-  - Aggiorna sempre la versione in `config.yaml` prima del deployment
-- **Esempio**: `1.0.0` → `1.1.0` (nuovo tool) o `1.0.1` (bug fix)
+## Version and Changelog Management
+- **Add-on version**: Defined in `mcp_ha/config.yaml` in the `version` field
+- **Format**: Use Semantic Versioning (MAJOR.MINOR.PATCH)
+  - MAJOR: Breaking changes (e.g., tool removal, API change)
+  - MINOR: New backward-compatible features (e.g., new MCP tool)
+  - PATCH: Bug fixes and minor improvements
+- **When to increment**:
+  - Every time you modify the server code
+  - Before committing new features or fixes
+  - Always update the version in `config.yaml` before deployment
+- **Example**: `1.0.0` → `1.1.0` (new tool) or `1.0.1` (bug fix)
 
-### Aggiornamento CHANGELOG.md
-- **Obbligatorio**: Aggiorna `mcp_ha/CHANGELOG.md` ad ogni modifica insieme alla versione
-- **Posizione**: Il file deve stare in `mcp_ha/CHANGELOG.md` per essere visibile nella tab Changelog dell'add-on Home Assistant
-- **Formato**: Segui [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
-- **Categorie da usare**:
-  - `Aggiunto`: Nuove funzionalità (tool MCP, feature)
-  - `Modificato`: Cambiamenti a funzionalità esistenti
-  - `Deprecato`: Funzionalità che saranno rimosse
-  - `Rimosso`: Funzionalità rimosse
-  - `Corretto`: Bug fix
-  - `Sicurezza`: Vulnerabilità corrette
-- **Workflow**: Quando modifichi codice:
-  1. Incrementa versione in `config.yaml`
-  2. Aggiungi entry in `CHANGELOG.md` sotto la nuova versione con data
-  3. Descrivi la modifica nella categoria appropriata
-- **Esempio entry**:
+### Updating CHANGELOG.md
+- **Mandatory**: Update `mcp_ha/CHANGELOG.md` with every modification along with the version
+- **Location**: The file must be in `mcp_ha/CHANGELOG.md` to be visible in the Changelog tab of the Home Assistant add-on
+- **Format**: Follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+- **Categories to use**:
+  - `Added`: New features (MCP tools, features)
+  - `Changed`: Changes to existing features
+  - `Deprecated`: Features that will be removed
+  - `Removed`: Removed features
+  - `Fixed`: Bug fixes
+  - `Security`: Fixed vulnerabilities
+- **Workflow**: When modifying code:
+  1. Increment version in `config.yaml`
+  2. Add entry in `CHANGELOG.md` under the new version with date
+  3. Describe the modification in the appropriate category
+- **Example entry**:
   ```markdown
   ## [1.1.0] - 2026-01-16
   
-  ### Aggiunto
-  - Tool `ha_trigger_automation`: possibilità di triggerare automazioni
+  ### Added
+  - Tool `ha_trigger_automation`: ability to trigger automations
   ```
 
-## Note Importanti
-- Il server gira inside un container Home Assistant add-on
-- Non modificare l'endpoint `/health` (usato per monitoraggio)
-- Token HA: sempre validato prima dell'uso, mai hardcoded
-- HA_BASE_URL: di default `http://homeassistant:8123` (rete interna add-on)
-- **Versione**: Ricordati di incrementare la versione in `config.yaml` ad ogni modifica
+## Important Notes
+- The server runs inside a Home Assistant add-on container
+- Do not modify the `/health` endpoint (used for monitoring)
+- HA Token: always validated before use, never hardcoded
+- HA_BASE_URL: defaults to `http://homeassistant:8123` (internal add-on network)
+- **Version**: Remember to increment the version in `config.yaml` with every modification

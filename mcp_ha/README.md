@@ -1,53 +1,53 @@
 # Home Assistant MCP Server
 
-Model Context Protocol (MCP) server che espone le API REST di Home Assistant come tool MCP.
+Model Context Protocol (MCP) server that exposes Home Assistant REST APIs as MCP tools.
 
-## Caratteristiche
+## Features
 
-- **Autenticazione Home Assistant**: Richiede token long-lived di Home Assistant
-- **5 Tool MCP**:
-  - `ha_list_states`: Ottieni tutti gli stati delle entità
-  - `ha_get_state`: Ottieni lo stato di una entità specifica
-  - `ha_list_services`: Ottieni tutti i servizi disponibili
-  - `ha_call_service`: Chiama un servizio di Home Assistant
-  - `ha_render_template`: Renderizza template Jinja2 di Home Assistant
-- **Health Check**: Endpoint `/health` senza autenticazione
-- **Streamable HTTP Transport**: Compatibile con client MCP moderni
+- **Home Assistant Authentication**: Requires Home Assistant long-lived token
+- **5 MCP Tools**:
+  - `ha_list_states`: Get all entity states
+  - `ha_get_state`: Get state of a specific entity
+  - `ha_list_services`: Get all available services
+  - `ha_call_service`: Call a Home Assistant service
+  - `ha_render_template`: Render Home Assistant Jinja2 templates
+- **Health Check**: `/health` endpoint without authentication
+- **Streamable HTTP Transport**: Compatible with modern MCP clients
 
-## Configurazione
+## Configuration
 
-Prima di avviare, vai alla tab **Configuration**:
+Before starting, go to the **Configuration** tab:
 
 ```yaml
 ha_base_url: "http://homeassistant:8123"
 ```
 
-Il valore di default dovrebbe funzionare. Se Home Assistant è su un'altra porta o host, modificalo.
+The default value should work. If Home Assistant is on a different port or host, modify it.
 
-## Avvio
+## Startup
 
-1. Tab **Info**
-2. Abilita **Start on boot** (opzionale ma consigliato)
-3. Abilita **Watchdog** (opzionale)
-4. Clicca **Start**
+1. **Info** tab
+2. Enable **Start on boot** (optional but recommended)
+3. Enable **Watchdog** (optional)
+4. Click **Start**
 
-## Ottenere un Token di Accesso
+## Obtaining an Access Token
 
-1. Vai su Home Assistant → **Profile** (click sul tuo nome in basso a sinistra)
-2. Scorri in basso fino a **Long-Lived Access Tokens**
-3. Clicca **Create Token**
-4. Dai un nome (es. "MCP Server")
-5. Copia il token (inizia con `eyJ...`)
+1. Go to Home Assistant → **Profile** (click your name in bottom left)
+2. Scroll down to **Long-Lived Access Tokens**
+3. Click **Create Token**
+4. Give it a name (e.g., "MCP Server")
+5. Copy the token (starts with `eyJ...`)
 
-## Test Base
+## Basic Testing
 
-### Health Check (senza autenticazione)
+### Health Check (without authentication)
 
 ```bash
 curl http://<raspi-ip>:8099/health
 ```
 
-Risposta attesa:
+Expected response:
 ```json
 {"status":"healthy","service":"mcp-ha-server"}
 ```
@@ -56,71 +56,71 @@ Risposta attesa:
 
 ```bash
 curl -X POST http://<raspi-ip>:8099/mcp/v1/tools/list \
-     -H "Authorization: Bearer <TUO_TOKEN>" \
+     -H "Authorization: Bearer <YOUR_TOKEN>" \
      -H "Content-Type: application/json"
 ```
 
-Risposta attesa: lista dei 5 tool MCP.
+Expected response: list of 5 MCP tools.
 
-## Note sui Template
+## Template Notes
 
-Quando usi il tool MCP `ha_render_template`, assicurati che i filtri Jinja siano supportati da Home Assistant.
+When using the `ha_render_template` MCP tool, make sure Jinja filters are supported by Home Assistant.
 
-- Il filtro `avg` NON è disponibile in Home Assistant.
-- Usa invece `average` (funzione/filtro numerico) come da documentazione ufficiale.
-- In alternativa, calcola la media manualmente: `sum(lista) / count(lista)` dopo aver convertito i valori in numeri (es. `map('float')`).
+- The `avg` filter is NOT available in Home Assistant.
+- Use `average` (numeric function/filter) instead as per official documentation.
+- Alternatively, calculate the average manually: `sum(list) / count(list)` after converting values to numbers (e.g., `map('float')`).
 
-Esempi corretti:
+Correct examples:
 
 ```jinja2
 {{ [1, 2, 3, 4] | average }}
 {{ ([1, 2, 3, 4] | sum) / ([1, 2, 3, 4] | count) }}
 ```
 
-Se ricevi un errore del tipo `No filter named 'avg'`, il server MCP risponde con un suggerimento automatico su come correggere il template.
+If you get an error like `No filter named 'avg'`, the MCP server responds with an automatic suggestion on how to fix the template.
 
-### Gestione Valori Unknown
+### Handling Unknown Values
 
-Quando hai sensori con valori `unknown` o non numerici:
+When you have sensors with `unknown` or non-numeric values:
 
 ```jinja2
-# Con default
+# With default
 {{ states.sensor | selectattr('entity_id', 'in', ['sensor.temp1', 'sensor.temp2']) 
    | map(attribute='state') | map('float', default=0) | average }}
 
-# Filtrando solo numeri validi
+# Filtering only valid numbers
 {{ states.sensor | selectattr('entity_id', 'in', ['sensor.temp1', 'sensor.temp2']) 
    | map(attribute='state') | select('is_number') | map('float') | average(0) }}
 ```
 
 ## Troubleshooting
 
-### Errore 401 Unauthorized
+### Error 401 Unauthorized
 
-- Verifica che il token sia valido: vai su Home Assistant → Profile → Long-Lived Access Tokens
-- Il token potrebbe essere scaduto o revocato
-- Assicurati di usare `Authorization: Bearer <token>` (con "Bearer " e spazio)
+- Verify the token is valid: go to Home Assistant → Profile → Long-Lived Access Tokens
+- The token might be expired or revoked
+- Make sure to use `Authorization: Bearer <token>` (with "Bearer " and space)
 
-### Errore 503 Service Unavailable
+### Error 503 Service Unavailable
 
-- L'add-on non riesce a raggiungere Home Assistant
-- Verifica che `ha_base_url` sia corretto (di solito `http://homeassistant:8123`)
-- Controlla che Home Assistant sia in esecuzione
+- The add-on cannot reach Home Assistant
+- Verify that `ha_base_url` is correct (usually `http://homeassistant:8123`)
+- Check that Home Assistant is running
 
-### L'add-on non si avvia
+### Add-on won't start
 
-1. Controlla i log nella tab **Log**
-2. Verifica che `ha_base_url` sia corretto nella Configuration
-3. Assicurati che la porta 8099 non sia già in uso
+1. Check the logs in the **Log** tab
+2. Verify that `ha_base_url` is correct in Configuration
+3. Make sure port 8099 is not already in use
 
-## Sicurezza
+## Security
 
-⚠️ **Attenzione**:
-- Non esporre mai la porta 8099 direttamente su Internet senza HTTPS
-- Usa sempre un reverse proxy (Nginx Proxy Manager, Traefik, etc.) con SSL
-- Non loggare mai i token nei log
-- Revoca i token compromessi immediatamente da Home Assistant
+⚠️ **Warning**:
+- Never expose port 8099 directly on the Internet without HTTPS
+- Always use a reverse proxy (Nginx Proxy Manager, Traefik, etc.) with SSL
+- Never log tokens in logs
+- Revoke compromised tokens immediately from Home Assistant
 
-## Supporto
+## Support
 
-Per problemi, domande o feature request, visita il repository GitHub del progetto.
+For issues, questions, or feature requests, visit the project's GitHub repository.

@@ -1,71 +1,89 @@
 # Changelog
 
-Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
+All notable changes to this project will be documented in this file.
 
-Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
-e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [1.4.0] - 2026-01-16
+
+### Added
+- **Automated CI/CD with GitHub Actions**: on every push to `main`, automatic multi-arch Docker image build (amd64, arm64, armv7) and push to GitHub Container Registry (GHCR).
+- **Automatic GitHub releases**: automatic GitHub release creation with version tag when pushing (skippable with `[skip-release]` in commit message).
+- **Auto-update from registry**: Home Assistant can now download updates automatically from `ghcr.io` without local rebuild.
+
+### Changed
+- `config.yaml`: added `image` field to use pre-built images from GitHub Container Registry.
+- `config.yaml`: added `url` field with link to GitHub repository.
+
+## [1.3.5] - 2026-01-16
+
+### Changed
+- Detailed logging of payloads for `ha_call_service` to facilitate debugging of Home Assistant calls.
+- Automatic normalization of Spotify URIs (`Spotify:` → `spotify:`) before sending `media_player.play_media` to Home Assistant.
+- Improved error suggestions for status code 500, with specific messages for `media_player.play_media` guiding verification of device, URI format, and Spotify authentication.
 
 ## [1.3.4] - 2026-01-16
 
-### Modificato
-- **Gestione errori agent-friendly per tutti i tool**: tutti i tool MCP ora restituiscono 200 con payload di errore strutturato (error, status_code, message, suggestion) invece di HTTP 4xx quando l'API HA fallisce, permettendo agli AI agent di interpretare e agire sugli errori.
-- Centralizzata l'esecuzione dei tool nella funzione `execute_tool()` che cattura `HTTPException` e le converte in risposte 200 con informazioni contestuali.
-- Aggiunta funzione helper `get_error_suggestion()` che fornisce suggerimenti contestuali basati su status code, messaggio di errore, tool name e parametri (es. per 404 su entity suggerisce di usare `ha_list_states`).
+### Changed
+- **Agent-friendly error handling for all tools**: all MCP tools now return 200 with structured error payload (error, status_code, message, suggestion) instead of HTTP 4xx when HA API fails, allowing AI agents to interpret and act on errors.
+- Centralized tool execution in `execute_tool()` function that captures `HTTPException` and converts them to 200 responses with contextual information.
+- Added `get_error_suggestion()` helper function that provides contextual suggestions based on status code, error message, tool name, and parameters (e.g., for 404 on entity suggests using `ha_list_states`).
 
 ## [1.3.3] - 2026-01-16
 
-### Corretto
-- `call_ha_api`: gestisce risposte non-JSON (es. `/api/template`) con fallback a `response.text`, evitando JSONDecodeError e risposte 400.
+### Fixed
+- `call_ha_api`: handles non-JSON responses (e.g., `/api/template`) with fallback to `response.text`, avoiding JSONDecodeError and 400 responses.
 
 ## [1.3.2] - 2026-01-16
 
-### Modificato
-- `ha_render_template`: in caso di errore di rendering, il server ora risponde 200 con una spiegazione strutturata (message, suggestion, docs_url) per migliorare l'interoperabilità con agent runtime che non interpretano 400.
+### Changed
+- `ha_render_template`: in case of rendering error, the server now responds 200 with a structured explanation (message, suggestion, docs_url) to improve interoperability with agent runtimes that don't interpret 400.
 
 ## [1.3.1] - 2026-01-16
 
-### Corretto
-- Migliorati suggerimenti per errori di rendering template quando `float` riceve valori non numerici (es. `unknown`) e non è specificato un `default`. Indicazioni su `map('float', default=0)`, `select('is_number')` e `average(0)`.
+### Fixed
+- Improved suggestions for template rendering errors when `float` receives non-numeric values (e.g., `unknown`) and no `default` is specified. Guidance on `map('float', default=0)`, `select('is_number')`, and `average(0)`.
 
 ## [1.3.0] - 2026-01-16
 
-### Modificato
-- `ha_render_template`: migliorata la gestione errori per filtri Jinja non supportati con suggerimenti automatici (es. `avg` → usare `average`)
-- Documentazione aggiornata con esempi di `average` e calcolo manuale della media
+### Changed
+- `ha_render_template`: improved error handling for unsupported Jinja filters with automatic suggestions (e.g., `avg` → use `average`)
+- Updated documentation with examples of `average` and manual average calculation
 
 ## [1.2.3] - 2026-01-16
 
-### Corretto
-- Aggiunto config.yaml al Dockerfile per permettere la lettura della versione
-- Aggiunto fallback nella funzione get_version() per cercare in più percorsi
+### Fixed
+- Added config.yaml to Dockerfile to allow version reading
+- Added fallback in get_version() function to search in multiple paths
 
 ## [1.2.2] - 2026-01-16
 
-### Aggiunto
-- Stampa della versione all'avvio del server nel log
-- Dipendenza pyyaml per leggere la versione dal config.yaml
+### Added
+- Version printing at server startup in the log
+- pyyaml dependency to read version from config.yaml
 
 ## [1.2.1] - 2026-01-16
 
-### Corretto
-- Aggiunto endpoint SSE su `/mcp` per supportare correttamente il protocollo MCP Streamable HTTP
-- Risolto errore 307 redirect quando client MCP si connette all'endpoint principale
+### Fixed
+- Added SSE endpoint on `/mcp` to properly support MCP Streamable HTTP protocol
+- Fixed 307 redirect error when MCP client connects to main endpoint
 
 ## [1.2.0] - 2026-01-16
 
-### Aggiunto
-- Copilot instructions per guidare lo sviluppo futuro
-- CHANGELOG.md per tracciare le modifiche
+### Added
+- Copilot instructions to guide future development
+- CHANGELOG.md to track changes
 
 ## [1.0.0] - 2026-01-16
 
-### Aggiunto
-- Server MCP iniziale con 4 tool per Home Assistant
-- Tool `ha_list_states`: elenca tutti gli stati delle entità
-- Tool `ha_get_state`: recupera lo stato di un'entità specifica
-- Tool `ha_list_services`: elenca tutti i servizi disponibili
-- Tool `ha_call_service`: chiama un servizio di Home Assistant
-- Autenticazione tramite token long-lived di Home Assistant
-- Endpoint `/health` per monitoring
-- Supporto Streamable HTTP Transport (MCP)
+### Added
+- Initial MCP server with 4 tools for Home Assistant
+- Tool `ha_list_states`: list all entity states
+- Tool `ha_get_state`: retrieve state of a specific entity
+- Tool `ha_list_services`: list all available services
+- Tool `ha_call_service`: call a Home Assistant service
+- Authentication via Home Assistant long-lived token
+- `/health` endpoint for monitoring
+- Streamable HTTP Transport support (MCP)
 - Home Assistant Add-on configuration
