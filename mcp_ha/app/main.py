@@ -521,12 +521,26 @@ def get_error_suggestion(status_code: int, detail: str, tool_name: str, argument
             if domain == "media_player" and service == "play_media":
                 entity_id = service_data.get("entity_id", "")
                 media_id = service_data.get("media_content_id", "")
-                return (
-                    f"Error calling media_player.play_media on '{entity_id}'. "
-                    "Common causes: (1) Device is offline or unavailable, (2) Invalid media_content_id format, "
-                    "(3) Media source not authenticated (e.g., Spotify). Check that the media_content_id is correct "
-                    "and the device is online. For Spotify, ensure media_content_id uses lowercase 'spotify:' prefix."
-                )
+                media_type = service_data.get("media_content_type", "")
+                
+                # Enhanced suggestions for Spotify on Sonos
+                if "sonos" in entity_id.lower() and "spotify" in str(media_id).lower():
+                    return (
+                        f"Error playing Spotify on Sonos '{entity_id}'. "
+                        "Common causes: (1) Spotify account not linked to Sonos in Home Assistant, "
+                        "(2) Invalid Spotify URI format, (3) Sonos device offline. "
+                        "Try: (1) Check HA logs for Spotify authentication errors, "
+                        "(2) Verify Spotify URI format (spotify:playlist:ID, spotify:track:ID, etc.), "
+                        "(3) Ensure Sonos is powered on and connected, "
+                        "(4) Try using 'enqueue' parameter (replace/add/next/play)."
+                    )
+                else:
+                    return (
+                        f"Error calling media_player.play_media on '{entity_id}'. "
+                        "Common causes: (1) Device is offline or unavailable, (2) Invalid media_content_id format, "
+                        "(3) Media source not authenticated (e.g., Spotify). Check that the media_content_id is correct "
+                        "and the device is online. For Spotify, ensure media_content_id uses lowercase 'spotify:' prefix."
+                    )
             else:
                 return f"Service {domain}.{service} failed on Home Assistant. Check service parameters and Home Assistant logs."
         else:
@@ -649,6 +663,13 @@ async def execute_tool(tool_name: str, arguments: dict, token: str):
                 normalized_id = "spotify:" + media_id[8:]
                 logger.info(f"Normalized Spotify URI from '{media_id}' to '{normalized_id}'")
                 data["media_content_id"] = normalized_id
+            
+            # For Sonos + Spotify, add enqueue parameter if not present to avoid playback issues
+            entity_id = data.get("entity_id", "")
+            if "sonos" in entity_id.lower() and media_id and media_id.startswith("spotify:"):
+                if "enqueue" not in data:
+                    data["enqueue"] = "replace"  # Default behavior: replace queue
+                    logger.info(f"Added 'enqueue: replace' for Sonos+Spotify playback")
 
         tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}", token, data)
     
