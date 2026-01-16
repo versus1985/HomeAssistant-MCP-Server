@@ -659,14 +659,17 @@ async def execute_tool(tool_name: str, arguments: dict, token: str):
         # Normalize Spotify media_content_id (convert "Spotify:" prefix to "spotify:")
         if domain == "media_player" and service == "play_media" and "media_content_id" in data:
             media_id = data["media_content_id"]
+            entity_id = data.get("entity_id", "")
+            
+            # Normalize case (Spotify: -> spotify:)
             if isinstance(media_id, str) and media_id.startswith("Spotify:"):
                 normalized_id = "spotify:" + media_id[8:]
                 logger.info(f"Normalized Spotify URI from '{media_id}' to '{normalized_id}'")
                 data["media_content_id"] = normalized_id
+                media_id = normalized_id
             
             # For Sonos + Spotify, add enqueue parameter if not present to avoid playback issues
-            entity_id = data.get("entity_id", "")
-            if "sonos" in entity_id.lower() and media_id and media_id.startswith("spotify:"):
+            if "sonos" in entity_id.lower() and isinstance(media_id, str) and media_id.lower().startswith("spotify"):
                 if "enqueue" not in data:
                     data["enqueue"] = "replace"  # Default behavior: replace queue
                     logger.info(f"Added 'enqueue: replace' for Sonos+Spotify playback")
