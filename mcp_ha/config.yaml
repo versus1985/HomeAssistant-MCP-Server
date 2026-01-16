@@ -1,5 +1,5 @@
 name: MCP Server for Home Assistant
-version: "1.4.0"
+version: "1.4.1"
 slug: mcp_ha
 description: Model Context Protocol server that exposes Home Assistant REST API as MCP tools
 url: https://github.com/versus1985/HomeAssistant-MCP-Server
@@ -13,7 +13,7 @@ startup: services
 boot: auto
 ingress: false
 ports:
-  8099/tcp: 8099
+  8099/tcp: 8099  
 options:
   ha_base_url: "http://homeassistant:8123"
 schema:

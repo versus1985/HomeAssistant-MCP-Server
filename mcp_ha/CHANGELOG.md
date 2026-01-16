@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] - 2026-01-16
+
+### Fixed
+- Fixed GHCR image URL in config.yaml to include username
+- Removed uvicorn[standard] extras to fix ARM v7 build issues (uvloop and httptools don't compile on 32-bit ARM)
+
 ## [1.4.0] - 2026-01-16
 
 ### Added
