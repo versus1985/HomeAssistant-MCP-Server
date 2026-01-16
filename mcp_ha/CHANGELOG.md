@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.9] - 2026-01-16
+
+### Fixed
+- Fixed media_player.browse_media service calls:
+  - Automatically adds `?return_response=true` query parameter (required by Home Assistant)
+  - Cleans up entity_id if LLM mistakenly added query parameters
+  - Returns browse_media response directly instead of empty success response
+
 ## [1.4.8] - 2026-01-16
 
 ### Fixed

@@ -742,6 +742,26 @@ async def execute_tool(tool_name: str, arguments: dict, token: str):
                                 }
                             }
 
+        # Handle media_player.browse_media - requires ?return_response=true query parameter
+        if domain == "media_player" and service == "browse_media":
+            entity_id = data.get("entity_id", "")
+            
+            # Clean up entity_id if LLM added query parameters
+            if "?" in entity_id:
+                logger.warning(f"Entity ID contains query parameters: {entity_id}")
+                entity_id = entity_id.split("?")[0]
+                data["entity_id"] = entity_id
+                logger.info(f"Cleaned entity_id to: {entity_id}")
+            
+            # browse_media requires ?return_response=true in query parameters
+            logger.info(f"browse_media requires return_response=true query parameter")
+            
+            # Call with query parameter
+            tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}?return_response=true", token, data)
+            
+            # Return early to avoid the default call at the end
+            return tool_result
+
         tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}", token, data)
     
     elif tool_name == "ha_get_config":
