@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.8] - 2026-01-16
+
+### Fixed
+- Sonos + Spotify URI format validation:
+  - Detects incorrect simple format (spotify:playlist:ID) and explains why it fails
+  - Requires full Spotify URI format (spotify://USER_ID/spotify:playlist:ID)
+  - Provides clear workflow: use browse_media first to get correct URI
+  - Explains that the correct URI cannot be manually constructed
+  - Added step-by-step instructions for the correct workflow
+
 ## [1.4.7] - 2026-01-16
 
 ### Improved
