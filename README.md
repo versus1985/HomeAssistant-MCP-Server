@@ -1,6 +1,29 @@
-# Home Assistant MCP Server - Developer Documentation
+# Home Assistant MCP Server
+
+[![GitHub Release](https://img.shields.io/github/v/release/versus1985/HomeAssistant-MCP-Server)](https://github.com/versus1985/HomeAssistant-MCP-Server/releases)
+[![License](https://img.shields.io/github/license/versus1985/HomeAssistant-MCP-Server)](LICENSE)
 
 Model Context Protocol (MCP) server that exposes Home Assistant REST APIs as MCP tools.
+
+## Quick Installation
+
+### From Home Assistant Add-on Store
+
+1. **Add this repository**:
+   - Settings → Add-ons → Add-on Store → Menu (⋮) → Repositories
+   - Add: `https://github.com/versus1985/HomeAssistant-MCP-Server`
+   - Click **Add**
+
+2. **Install the add-on**:
+   - Search for "MCP Server for Home Assistant"
+   - Click **Install**
+   - Configure and start
+
+For complete details, see [INSTALL_FROM_GITHUB.md](INSTALL_FROM_GITHUB.md)
+
+---
+
+## Developer Documentation
 
 ## Architecture
 
