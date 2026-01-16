@@ -668,11 +668,27 @@ async def execute_tool(tool_name: str, arguments: dict, token: str):
                 data["media_content_id"] = normalized_id
                 media_id = normalized_id
             
-            # For Sonos + Spotify, add enqueue parameter if not present to avoid playback issues
+            # For Sonos + Spotify, require enqueue parameter
             if "sonos" in entity_id.lower() and isinstance(media_id, str) and media_id.lower().startswith("spotify"):
                 if "enqueue" not in data:
-                    data["enqueue"] = "replace"  # Default behavior: replace queue
-                    logger.info(f"Added 'enqueue: replace' for Sonos+Spotify playback")
+                    logger.warning(f"Missing 'enqueue' parameter for Sonos+Spotify playback")
+                    return {
+                        "error": "missing_required_parameter",
+                        "parameter": "enqueue",
+                        "message": "The 'enqueue' parameter is required when playing Spotify content on Sonos devices.",
+                        "suggestion": "Add 'enqueue' to the data object with one of these values: 'replace' (replace queue and play), 'add' (add to queue), 'next' (play next), or 'play' (play immediately).",
+                        "example": {
+                            "domain": "media_player",
+                            "service": "play_media",
+                            "data": {
+                                "entity_id": entity_id,
+                                "media_content_id": media_id,
+                                "media_content_type": data.get("media_content_type", "playlist"),
+                                "enqueue": "replace"
+                            }
+                        },
+                        "documentation": "https://www.home-assistant.io/integrations/sonos/#service-sonos-play-media"
+                    }
 
         tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}", token, data)
     

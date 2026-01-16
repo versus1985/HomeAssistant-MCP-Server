@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.4] - 2026-01-16
+
+### Changed
+- **Breaking**: Sonos + Spotify playback now requires explicit `enqueue` parameter
+  - Instead of auto-adding `enqueue`, the server now returns a clear error when it's missing
+  - Error includes example of correct call format to guide LLMs
+  - Better API learning for AI agents
+
 ## [1.4.3] - 2026-01-16
 
 ### Changed

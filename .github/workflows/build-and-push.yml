@@ -9,6 +9,11 @@ on:
       - '.github/workflows/build-and-push.yml'
   workflow_dispatch:
 
+# Grant global permissions required for release creation and package publishing
+permissions:
+  contents: write
+  packages: write
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/homeassistant-mcp-server
@@ -17,7 +22,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -69,6 +74,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: ${{ !contains(github.event.head_commit.message, '[skip-release]') }}
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v${{ steps.version.outputs.version }}
           name: Release v${{ steps.version.outputs.version }}
           body: |
