@@ -656,39 +656,44 @@ async def execute_tool(tool_name: str, arguments: dict, token: str):
         # Log service data for debugging
         logger.info(f"Calling service {domain}/{service} with data: {json.dumps(data, indent=2)}")
 
-        # Normalize Spotify media_content_id (convert "Spotify:" prefix to "spotify:")
-        if domain == "media_player" and service == "play_media" and "media_content_id" in data:
-            media_id = data["media_content_id"]
+        # Handle media_player.play_media for Sonos + Spotify
+        if domain == "media_player" and service == "play_media":
             entity_id = data.get("entity_id", "")
             
-            # Normalize case (Spotify: -> spotify:)
-            if isinstance(media_id, str) and media_id.startswith("Spotify:"):
-                normalized_id = "spotify:" + media_id[8:]
-                logger.info(f"Normalized Spotify URI from '{media_id}' to '{normalized_id}'")
-                data["media_content_id"] = normalized_id
-                media_id = normalized_id
-            
-            # For Sonos + Spotify, require enqueue parameter
-            if "sonos" in entity_id.lower() and isinstance(media_id, str) and media_id.lower().startswith("spotify"):
-                if "enqueue" not in data:
-                    logger.warning(f"Missing 'enqueue' parameter for Sonos+Spotify playback")
-                    return {
-                        "error": "missing_required_parameter",
-                        "parameter": "enqueue",
-                        "message": "The 'enqueue' parameter is required when playing Spotify content on Sonos devices.",
-                        "suggestion": "Add 'enqueue' to the data object with one of these values: 'replace' (replace queue and play), 'add' (add to queue), 'next' (play next), or 'play' (play immediately).",
-                        "example": {
-                            "domain": "media_player",
-                            "service": "play_media",
-                            "data": {
-                                "entity_id": entity_id,
-                                "media_content_id": media_id,
-                                "media_content_type": data.get("media_content_type", "playlist"),
-                                "enqueue": "replace"
-                            }
-                        },
-                        "documentation": "https://www.home-assistant.io/integrations/sonos/#service-sonos-play-media"
-                    }
+            # Check for Spotify content in data.media format
+            if "media" in data and isinstance(data["media"], dict):
+                media_id = data["media"].get("media_content_id")
+                media_type = data["media"].get("media_content_type")
+                
+                # For Sonos + Spotify, require enqueue parameter
+                if "sonos" in entity_id.lower() and media_id and isinstance(media_id, str):
+                    is_spotify = (
+                        media_id.lower().startswith("spotify:") or 
+                        media_id.lower().startswith("spotify://") or
+                        (media_type and "spotify" in media_type.lower())
+                    )
+                    
+                    if is_spotify and "enqueue" not in data:
+                        logger.warning(f"Missing 'enqueue' parameter for Sonos+Spotify playback")
+                        return {
+                            "error": "missing_required_parameter",
+                            "parameter": "enqueue",
+                            "message": "The 'enqueue' parameter is required when playing Spotify content on Sonos devices.",
+                            "suggestion": "Add 'enqueue' to the data object (at the same level as 'media' and 'entity_id') with one of these values: 'replace' (replace queue and play), 'add' (add to queue), 'next' (play next), or 'play' (play immediately).",
+                            "example": {
+                                "domain": "media_player",
+                                "service": "play_media",
+                                "data": {
+                                    "entity_id": entity_id,
+                                    "media": {
+                                        "media_content_id": media_id,
+                                        "media_content_type": media_type or "spotify://playlist"
+                                    },
+                                    "enqueue": "replace"
+                                }
+                            },
+                            "documentation": "https://www.home-assistant.io/integrations/sonos/#service-sonos-play-media"
+                        }
 
         tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}", token, data)
     

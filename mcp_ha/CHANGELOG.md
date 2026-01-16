@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.6] - 2026-01-16
+
+### Changed
+- Removed support for old media_player format (media_content_id directly in data)
+- Now only supports the working format with nested `data.media` object
+- Simplified code and error messages
+
+## [1.4.5] - 2026-01-16
+
+### Fixed
+- Corrected Sonos + Spotify format detection to support both old and new Home Assistant formats:
+  - Old format: `data.media_content_id` and `data.media_content_type`
+  - New format: `data.media.media_content_id` and `data.media.media_content_type`
+- Enhanced error message with both format examples
+- Better Spotify URI detection (handles `spotify:`, `spotify://`, and content type detection)
+
 ## [1.4.4] - 2026-01-16
 
 ### Changed
