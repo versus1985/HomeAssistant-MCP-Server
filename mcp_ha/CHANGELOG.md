@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.7] - 2026-01-16
+
+### Improved
+- Enhanced error messages for Sonos + Spotify playback:
+  - Detects old format (media_content_id directly in data) and provides conversion guide
+  - Shows side-by-side comparison of incorrect vs correct format
+  - Lists specific key changes needed
+  - Provides detailed explanation of enqueue parameter options
+  - Includes user's actual request in error response for easy comparison
+
 ## [1.4.6] - 2026-01-16
 
 ### Changed
