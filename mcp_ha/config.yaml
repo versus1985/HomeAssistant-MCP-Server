@@ -3,7 +3,7 @@ version: "1.4.0"
 slug: mcp_ha
 description: Model Context Protocol server that exposes Home Assistant REST API as MCP tools
 url: https://github.com/versus1985/HomeAssistant-MCP-Server
-image: ghcr.io/{arch}/homeassistant-mcp-server
+image: ghcr.io/versus1985/homeassistant-mcp-server
 arch:
   - aarch64
   - amd64
