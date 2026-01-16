@@ -2,10 +2,14 @@ import os
 import json
 import logging
 from typing import Optional
+import asyncio
+import re
+from pathlib import Path
 
 import httpx
+import yaml
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Configure logging
@@ -18,6 +22,29 @@ logger = logging.getLogger(__name__)
 # Configuration
 HA_BASE_URL = os.environ.get("HA_BASE_URL", "http://homeassistant:8123")
 HTTP_TIMEOUT = 30.0
+
+# Leggi versione dal config.yaml
+def get_version() -> str:
+    """Legge la versione dal file config.yaml."""
+    try:
+        # Prova prima il path relativo dalla cartella app
+        config_path = Path(__file__).parent.parent / "config.yaml"
+        if not config_path.exists():
+            # Prova nella root del container
+            config_path = Path("/config.yaml")
+        
+        if config_path.exists():
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+                return config.get("version", "unknown")
+        else:
+            logger.warning(f"config.yaml non trovato in {config_path}")
+            return "unknown"
+    except Exception as e:
+        logger.warning(f"Impossibile leggere la versione da config.yaml: {e}")
+        return "unknown"
+
+VERSION = get_version()
 
 # FastAPI app
 app = FastAPI(title="MCP Server for Home Assistant")
@@ -113,6 +140,44 @@ async def health():
     return {"status": "healthy", "service": "mcp-ha-server"}
 
 
+# SSE endpoint for MCP Streamable HTTP
+@app.get("/mcp")
+@app.get("/mcp/")
+async def mcp_sse_endpoint(request: Request):
+    """Server-Sent Events endpoint for MCP Streamable HTTP transport."""
+    logger.info("SSE endpoint called for MCP connection")
+    
+    async def event_generator():
+        try:
+            # Send initial endpoint info as SSE
+            endpoint_data = {
+                "jsonrpc": "2.0",
+                "method": "endpoint",
+                "params": {
+                    "endpoint": "/mcp/messages"
+                }
+            }
+            yield f"data: {json.dumps(endpoint_data)}\n\n"
+            
+            # Keep connection alive
+            while True:
+                await asyncio.sleep(30)
+                yield f": keepalive\n\n"
+                
+        except Exception as e:
+            logger.error(f"Error in SSE stream: {e}")
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 # Helper function to call Home Assistant API
 async def call_ha_api(
     method: str,
@@ -133,7 +198,15 @@ async def call_ha_api(
             raise ValueError(f"Unsupported HTTP method: {method}")
         
         response.raise_for_status()
-        return response.json()
+        # Prefer JSON; fallback to text for endpoints like /api/template
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            return response.json()
+        # Try JSON anyway; if it fails, return raw text
+        try:
+            return response.json()
+        except Exception:
+            return response.text
     
     except httpx.HTTPStatusError as e:
         logger.error(f"HA API error: {e.response.status_code} - {e.response.text}")
@@ -152,6 +225,7 @@ async def call_ha_api(
 # MCP JSON-RPC 2.0 endpoint
 @app.post("/")
 @app.post("/messages")
+@app.post("/mcp")
 @app.post("/mcp/")
 @app.post("/mcp/messages")
 async def handle_messages(request: Request):
@@ -191,10 +265,28 @@ async def handle_messages(request: Request):
                 "tools": [
                     {
                         "name": "ha_list_states",
-                        "description": "Get all entity states from Home Assistant",
+                        "description": "Get all entity states from Home Assistant (use sparingly, returns large payload)",
                         "inputSchema": {
                             "type": "object",
                             "properties": {},
+                            "required": []
+                        }
+                    },
+                    {
+                        "name": "ha_list_states_filtered",
+                        "description": "Get filtered entity states by domain and/or state (more efficient than ha_list_states)",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "domain": {
+                                    "type": "string",
+                                    "description": "Filter by domain (e.g., 'light', 'switch', 'sensor')"
+                                },
+                                "state": {
+                                    "type": "string",
+                                    "description": "Filter by state (e.g., 'on', 'off', 'unavailable')"
+                                }
+                            },
                             "required": []
                         }
                     },
@@ -210,6 +302,42 @@ async def handle_messages(request: Request):
                                 }
                             },
                             "required": ["entity_id"]
+                        }
+                    },
+                    {
+                        "name": "ha_get_history",
+                        "description": "Get state history for one or more entities",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "entity_id": {
+                                    "type": "string",
+                                    "description": "Entity ID (e.g., sensor.temperature)"
+                                },
+                                "start_time": {
+                                    "type": "string",
+                                    "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00+00:00)"
+                                },
+                                "end_time": {
+                                    "type": "string",
+                                    "description": "End time in ISO 8601 format (optional)"
+                                }
+                            },
+                            "required": ["entity_id"]
+                        }
+                    },
+                    {
+                        "name": "ha_render_template",
+                        "description": "Render a Jinja2 template to query or manipulate data from Home Assistant",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "template": {
+                                    "type": "string",
+                                    "description": "Jinja2 template string (e.g., '{{ states.light | list }}')"
+                                }
+                            },
+                            "required": ["template"]
                         }
                     },
                     {
@@ -242,6 +370,55 @@ async def handle_messages(request: Request):
                             },
                             "required": ["domain", "service"]
                         }
+                    },
+                    {
+                        "name": "ha_get_config",
+                        "description": "Get Home Assistant configuration information",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {},
+                            "required": []
+                        }
+                    },
+                    {
+                        "name": "ha_get_logbook",
+                        "description": "Get logbook entries (events and state changes)",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "entity_id": {
+                                    "type": "string",
+                                    "description": "Filter by entity ID (optional)"
+                                },
+                                "start_time": {
+                                    "type": "string",
+                                    "description": "Start time in ISO 8601 format"
+                                },
+                                "end_time": {
+                                    "type": "string",
+                                    "description": "End time in ISO 8601 format (optional)"
+                                }
+                            },
+                            "required": []
+                        }
+                    },
+                    {
+                        "name": "ha_fire_event",
+                        "description": "Fire an event on the Home Assistant event bus",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "event_type": {
+                                    "type": "string",
+                                    "description": "Event type to fire"
+                                },
+                                "event_data": {
+                                    "type": "object",
+                                    "description": "Event data (optional)"
+                                }
+                            },
+                            "required": ["event_type"]
+                        }
                     }
                 ]
             }
@@ -253,24 +430,21 @@ async def handle_messages(request: Request):
             
             logger.info(f"Tool called: {tool_name}, arguments_keys={list(arguments.keys())}")
             
-            if tool_name == "ha_list_states":
-                tool_result = await call_ha_api("GET", "/api/states", token)
-            elif tool_name == "ha_get_state":
-                entity_id = arguments.get("entity_id")
-                if not entity_id:
-                    raise ValueError("entity_id is required")
-                tool_result = await call_ha_api("GET", f"/api/states/{entity_id}", token)
-            elif tool_name == "ha_list_services":
-                tool_result = await call_ha_api("GET", "/api/services", token)
-            elif tool_name == "ha_call_service":
-                domain = arguments.get("domain")
-                service = arguments.get("service")
-                data = arguments.get("data")
-                if not domain or not service:
-                    raise ValueError("domain and service are required")
-                tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}", token, data or {})
-            else:
-                raise ValueError(f"Unknown tool: {tool_name}")
+            # Wrap tool execution to catch HA API errors and return 200 with structured error
+            try:
+                tool_result = await execute_tool(tool_name, arguments, token)
+            except HTTPException as e:
+                # Return 200 with structured error info for agent consumption
+                status_code = e.status_code
+                detail = str(e.detail)
+                tool_result = {
+                    "error": "ha_api_error",
+                    "status_code": status_code,
+                    "message": detail,
+                    "suggestion": get_error_suggestion(status_code, detail, tool_name, arguments),
+                    "tool": tool_name,
+                    "arguments": arguments
+                }
             
             result = {
                 "content": [
@@ -303,20 +477,223 @@ async def handle_messages(request: Request):
     
     except Exception as e:
         logger.error(f"Error handling MCP request: method={method}, error={e}", exc_info=True)
-        return JSONResponse(
-            status_code=400,
-            content={
-                "jsonrpc": "2.0",
-                "error": {"code": -32603, "message": str(e)},
-                "id": request_id
+
+
+def get_error_suggestion(status_code: int, detail: str, tool_name: str, arguments: dict) -> str:
+    """
+    Generate context-aware error suggestions based on status code, error message,
+    tool name, and arguments.
+    """
+    if status_code == 404:
+        if tool_name == "ha_get_state":
+            entity_id = arguments.get("entity_id", "")
+            return (
+                f"Entity '{entity_id}' not found. Check the entity_id spelling or use "
+                "ha_list_states to see all available entities."
+            )
+        elif tool_name == "ha_call_service":
+            domain = arguments.get("domain", "")
+            service = arguments.get("service", "")
+            return (
+                f"Service '{domain}.{service}' not found. Use ha_list_services to see available services, "
+                "or verify the domain and service names are correct."
+            )
+        else:
+            return "Resource not found. Verify the requested resource exists in Home Assistant."
+    
+    elif status_code == 400:
+        if "entity" in detail.lower() or "entity_id" in detail.lower():
+            return "Invalid entity_id provided. Check entity name format (domain.name) and spelling."
+        else:
+            return "Bad request. Check that all required parameters are provided with valid values."
+    
+    elif status_code == 401 or status_code == 403:
+        return "Authentication or authorization failed. Check your Home Assistant access token."
+    
+    elif status_code == 500:
+        # Enhanced 500 error handling with service-specific suggestions
+        if tool_name == "ha_call_service":
+            domain = arguments.get("domain", "")
+            service = arguments.get("service", "")
+            service_data = arguments.get("data", {})
+            
+            # Media player specific suggestions
+            if domain == "media_player" and service == "play_media":
+                entity_id = service_data.get("entity_id", "")
+                media_id = service_data.get("media_content_id", "")
+                return (
+                    f"Error calling media_player.play_media on '{entity_id}'. "
+                    "Common causes: (1) Device is offline or unavailable, (2) Invalid media_content_id format, "
+                    "(3) Media source not authenticated (e.g., Spotify). Check that the media_content_id is correct "
+                    "and the device is online. For Spotify, ensure media_content_id uses lowercase 'spotify:' prefix."
+                )
+            else:
+                return f"Service {domain}.{service} failed on Home Assistant. Check service parameters and Home Assistant logs."
+        else:
+            return "Home Assistant API returned 500 Internal Server Error. Check Home Assistant logs for details."
+    
+    else:
+        return f"Home Assistant API returned {status_code}. Check Home Assistant logs for details."
+
+
+async def execute_tool(tool_name: str, arguments: dict, token: str):
+    """Execute a tool and return the result."""
+    if tool_name == "ha_list_states":
+        tool_result = await call_ha_api("GET", "/api/states", token)
+    
+    elif tool_name == "ha_list_states_filtered":
+        # Get all states and filter locally
+        all_states = await call_ha_api("GET", "/api/states", token)
+        domain_filter = arguments.get("domain")
+        state_filter = arguments.get("state")
+        
+        filtered_states = all_states
+        if domain_filter:
+            filtered_states = [s for s in filtered_states if s.get("entity_id", "").startswith(f"{domain_filter}.")]
+        if state_filter:
+            filtered_states = [s for s in filtered_states if s.get("state") == state_filter]
+        
+        tool_result = filtered_states
+    
+    elif tool_name == "ha_get_state":
+        entity_id = arguments.get("entity_id")
+        if not entity_id:
+            raise ValueError("entity_id is required")
+        tool_result = await call_ha_api("GET", f"/api/states/{entity_id}", token)
+    
+    elif tool_name == "ha_get_history":
+        entity_id = arguments.get("entity_id")
+        start_time = arguments.get("start_time")
+        end_time = arguments.get("end_time")
+        
+        if not entity_id:
+            raise ValueError("entity_id is required")
+        
+        # Build query parameters
+        params = []
+        if start_time:
+            params.append(f"filter_entity_id={entity_id}")
+        
+        # Construct URL
+        timestamp = start_time if start_time else ""
+        url_path = f"/api/history/period/{timestamp}"
+        if params:
+            url_path += "?" + "&".join(params)
+        
+        tool_result = await call_ha_api("GET", url_path, token)
+    
+    elif tool_name == "ha_render_template":
+        template = arguments.get("template")
+        if not template:
+            raise ValueError("template is required")
+        
+        try:
+            tool_result = await call_ha_api("POST", "/api/template", token, {"template": template})
+        except HTTPException as e:
+            # Enhance error message for unsupported filters (e.g., 'avg')
+            detail = getattr(e, "detail", str(e))
+            msg = str(detail)
+            m = re.search(r"No filter named '([A-Za-z0-9_]+)'", msg)
+            suggestion = None
+            if m:
+                bad_filter = m.group(1)
+                if bad_filter.lower() == "avg":
+                    suggestion = (
+                        "Home Assistant does not provide an 'avg' filter. "
+                        "Use 'average' (numeric function/filter) instead, or compute it as "
+                        "(sum(list) / count(list)) after mapping to numbers."
+                    )
+                else:
+                    suggestion = (
+                        f"Filter '{bad_filter}' is not available. Refer to HA templating docs "
+                        "for supported filters like average, median, min, max, sum, count, map, selectattr, etc."
+                    )
+            # Suggest handling for float invalid input (e.g., 'unknown')
+            if not suggestion:
+                m2 = re.search(r"float got invalid input '([^']+)'[^\"]*no default was specified", msg)
+                if m2:
+                    bad_val = m2.group(1)
+                    suggestion = (
+                        "The 'float' filter failed due to non-numeric values (e.g., '"
+                        + bad_val +
+                        "'). Use one of: map('float', default=0), or filter out non-numerics "
+                        "with select('is_number') before converting, or use average with a default: "
+                        "list | average(0)."
+                    )
+            # Return 200 with explanation instead of raising 400 (agent-friendly)
+            tool_result = {
+                "error": "template_render_error",
+                "message": msg,
+                "suggestion": suggestion or "See HA templating docs for supported filters and numeric handling.",
+                "docs_url": "https://www.home-assistant.io/docs/configuration/templating/",
+                "template": template
             }
-        )
+    
+    elif tool_name == "ha_list_services":
+        tool_result = await call_ha_api("GET", "/api/services", token)
+    
+    elif tool_name == "ha_call_service":
+        domain = arguments.get("domain")
+        service = arguments.get("service")
+        data = arguments.get("data") or {}
+        if not domain or not service:
+            raise ValueError("domain and service are required")
+
+        # Log service data for debugging
+        logger.info(f"Calling service {domain}/{service} with data: {json.dumps(data, indent=2)}")
+
+        # Normalize Spotify media_content_id (convert "Spotify:" prefix to "spotify:")
+        if domain == "media_player" and service == "play_media" and "media_content_id" in data:
+            media_id = data["media_content_id"]
+            if isinstance(media_id, str) and media_id.startswith("Spotify:"):
+                normalized_id = "spotify:" + media_id[8:]
+                logger.info(f"Normalized Spotify URI from '{media_id}' to '{normalized_id}'")
+                data["media_content_id"] = normalized_id
+
+        tool_result = await call_ha_api("POST", f"/api/services/{domain}/{service}", token, data)
+    
+    elif tool_name == "ha_get_config":
+        tool_result = await call_ha_api("GET", "/api/config", token)
+    
+    elif tool_name == "ha_get_logbook":
+        entity_id = arguments.get("entity_id")
+        start_time = arguments.get("start_time")
+        end_time = arguments.get("end_time")
+        
+        # Build URL
+        timestamp = start_time if start_time else ""
+        url_path = f"/api/logbook/{timestamp}"
+        
+        params = []
+        if entity_id:
+            params.append(f"entity={entity_id}")
+        if end_time:
+            params.append(f"end_time={end_time}")
+        
+        if params:
+            url_path += "?" + "&".join(params)
+        
+        tool_result = await call_ha_api("GET", url_path, token)
+    
+    elif tool_name == "ha_fire_event":
+        event_type = arguments.get("event_type")
+        event_data = arguments.get("event_data")
+        
+        if not event_type:
+            raise ValueError("event_type is required")
+        
+        tool_result = await call_ha_api("POST", f"/api/events/{event_type}", token, event_data or {})
+    
+    else:
+        raise ValueError(f"Unknown tool: {tool_name}")
+    
+    return tool_result
 
 
 # Startup event
 @app.on_event("startup")
 async def startup():
-    logger.info(f"MCP Server starting with HA_BASE_URL: {HA_BASE_URL}")
+    logger.info(f"MCP Server v{VERSION} starting with HA_BASE_URL: {HA_BASE_URL}")
 
 
 # Shutdown event

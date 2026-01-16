@@ -1,5 +1,5 @@
 name: MCP Server for Home Assistant
-version: "1.0.0"
+version: "1.3.4"
 slug: mcp_ha
 description: Model Context Protocol server that exposes Home Assistant REST API as MCP tools
 arch:

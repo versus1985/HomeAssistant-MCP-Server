@@ -1,17 +1,55 @@
-# Home Assistant MCP Server Add-on
+# Home Assistant MCP Server - Developer Documentation
 
 Model Context Protocol (MCP) server che espone le API REST di Home Assistant come tool MCP.
 
-## Caratteristiche
+## Architettura
 
-- **Autenticazione Home Assistant**: Richiede token long-lived di Home Assistant
-- **4 Tool MCP**:
-  - `ha_list_states`: Ottieni tutti gli stati delle entità
-  - `ha_get_state`: Ottieni lo stato di una entità specifica
-  - `ha_list_services`: Ottieni tutti i servizi disponibili
-  - `ha_call_service`: Chiama un servizio di Home Assistant
-- **Health Check**: Endpoint `/health` senza autenticazione
-- **Streamable HTTP Transport**: Compatibile con client MCP moderni
+- **Framework**: FastAPI con Uvicorn
+- **Transport**: MCP Streamable HTTP
+- **Autenticazione**: Token long-lived di Home Assistant tramite Bearer token
+- **Deployment**: Home Assistant Add-on su Docker
+- **Porta**: 8099 (esposta dal container)
+
+## Struttura del Progetto
+
+```
+HomeAssistant-MCP-Server/
+├── README.md                    # Documentazione sviluppatori
+├── .github/
+│   └── copilot-instructions.md  # Istruzioni per GitHub Copilot
+└── mcp_ha/                      # Add-on Home Assistant
+    ├── README.md                # Documentazione utenti (visibile in HA)
+    ├── CHANGELOG.md             # Changelog (visibile in HA)
+    ├── config.yaml              # Configurazione add-on HA
+    ├── Dockerfile               # Container image
+    ├── requirements.txt         # Dipendenze Python
+    ├── run.sh                   # Script avvio
+    └── app/
+        └── main.py              # Server FastAPI + tool MCP
+```
+
+## Tool MCP Implementati
+
+1. **ha_list_states**: Recupera tutti gli stati delle entità HA
+2. **ha_get_state**: Recupera lo stato di un'entità specifica (input: entity_id)
+3. **ha_list_services**: Elenca tutti i servizi disponibili
+4. **ha_call_service**: Chiama un servizio HA (input: domain, service, entity_id, service_data)
+5. **ha_render_template**: Renderizza template Jinja2 di Home Assistant (input: template)
+
+## Gestione Errori Agent-Friendly
+
+Tutti i tool MCP restituiscono **sempre status 200** anche in caso di errore dall'API Home Assistant. Gli errori vengono restituiti come payload strutturato:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"error\": \"not_found\", \"status_code\": 404, \"message\": \"...\", \"suggestion\": \"...\"}"
+  }]
+}
+```
+
+Questo permette agli AI agent di interpretare gli errori e agire di conseguenza (es. recuperando prima la lista delle entità con `ha_list_states` se una entity_id non esiste).
 
 ## Installazione
 
